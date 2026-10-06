@@ -15,6 +15,15 @@ def test_dockerfile_runs_as_non_root_with_healthcheck() -> None:
     )
 
 
+def test_nixpacks_uses_supported_python_and_uvicorn_start_command() -> None:
+    python_version = (ROOT / ".python-version").read_text(encoding="utf-8").strip()
+    nixpacks = (ROOT / "nixpacks.toml").read_text(encoding="utf-8")
+
+    assert python_version == "3.12"
+    assert "[start]" in nixpacks
+    assert "uvicorn app.main:app --host 0.0.0.0" in nixpacks
+
+
 def test_example_environment_has_required_settings_without_real_credentials() -> None:
     example = (ROOT / ".env.example").read_text(encoding="utf-8")
 
