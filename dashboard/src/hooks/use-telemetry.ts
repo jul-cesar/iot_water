@@ -1,4 +1,8 @@
-import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query"
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from "@tanstack/react-query"
 
 import {
   PAGE_SIZE,
@@ -7,9 +11,14 @@ import {
   getNextOffset,
   getNodes,
 } from "@/lib/api"
-import { getPresetRange, type TimePreset, type TimeRange } from "@/lib/time-range"
+import {
+  getPresetRange,
+  type TimePreset,
+  type TimeRange,
+} from "@/lib/time-range"
 
-export const HISTORY_LIMIT = 2_000
+// ponytail: API caps limit at 1000 (newest first); add server-side downsampling if long ranges need full coverage
+export const HISTORY_LIMIT = 1_000
 
 export const telemetryKeys = {
   nodes: ["nodes"] as const,
@@ -40,18 +49,30 @@ export function useLatestMeasurement(nodeId: string | undefined) {
 export function useHistoricalMeasurements(
   nodeId: string | undefined,
   preset: TimePreset,
-  customRange?: TimeRange,
+  customRange?: TimeRange
 ) {
   return useQuery({
-    queryKey: telemetryKeys.history(nodeId ?? "", preset, preset === "custom" ? customRange : undefined),
+    queryKey: telemetryKeys.history(
+      nodeId ?? "",
+      preset,
+      preset === "custom" ? customRange : undefined
+    ),
     queryFn: async ({ signal }) => {
       // Presets slide with the clock, so the window is computed at fetch time.
       const range = preset === "custom" ? customRange! : getPresetRange(preset)
       const rows = await getMeasurements(
-        { nodeId, fromDate: range.from, toDate: range.to, limit: HISTORY_LIMIT },
-        signal,
+        {
+          nodeId,
+          fromDate: range.from,
+          toDate: range.to,
+          limit: HISTORY_LIMIT,
+        },
+        signal
       )
-      return { rows: [...rows].reverse(), truncated: rows.length >= HISTORY_LIMIT }
+      return {
+        rows: [...rows].reverse(),
+        truncated: rows.length >= HISTORY_LIMIT,
+      }
     },
     enabled: Boolean(nodeId) && (preset !== "custom" || Boolean(customRange)),
     refetchInterval: preset === "custom" ? false : 10_000,
