@@ -50,8 +50,10 @@ def test_readme_documents_operation_and_schema_policy() -> None:
         assert required in readme
 
 
-def test_lockfile_matches_project() -> None:
+def test_lockfile_matches_project_and_reaches_nixpacks_build() -> None:
     lockfile = (ROOT / "uv.lock").read_text(encoding="utf-8")
+    docker_ignores = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
 
     for dependency in ("sqlalchemy", "psycopg", "pydantic-settings"):
         assert f'name = "{dependency}"' in lockfile
+    assert "uv.lock" not in docker_ignores
