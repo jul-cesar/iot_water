@@ -1,6 +1,22 @@
 import type { Measurement } from "./api.ts"
 
 export type ConnectionState = "ONLINE" | "NO_DATA" | "ERROR"
+export type Severity = "normal" | "warning" | "critical"
+export type SensorKey = "temperature" | "ph" | "turbidity" | "tds" | "level"
+
+export function getSensorSeverity(key: SensorKey, value: number): Severity | null {
+  if (key === "ph") {
+    if (value < 5.5 || value > 9.5) return "critical"
+    if (value < 6.5 || value > 8.5) return "warning"
+    return "normal"
+  }
+  if (key === "turbidity") {
+    if (value > 8) return "critical"
+    if (value > 5) return "warning"
+    return "normal"
+  }
+  return null
+}
 
 export function getAlertReasons(measurement: Measurement): string[] {
   if (measurement.water_status === "OPTIMAL") return []

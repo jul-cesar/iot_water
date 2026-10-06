@@ -98,3 +98,14 @@ test("date formatters return readable labels", () => {
     ).length > 0,
   )
 })
+
+test("sensor severity applies pH and turbidity thresholds only", async () => {
+  const { getSensorSeverity } = await import("./water.ts")
+  assert.equal(getSensorSeverity("ph", 7), "normal")
+  assert.equal(getSensorSeverity("ph", 6.4), "warning")
+  assert.equal(getSensorSeverity("ph", 9.6), "critical")
+  assert.equal(getSensorSeverity("turbidity", 5), "normal")
+  assert.equal(getSensorSeverity("turbidity", 6), "warning")
+  assert.equal(getSensorSeverity("turbidity", 8.6), "critical")
+  assert.equal(getSensorSeverity("temperature", 99), null)
+})
