@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react"
 
+import { HistoryCharts } from "@/components/dashboard/history-charts"
+import { TimeRangeFilter } from "@/components/dashboard/time-range-filter"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { SensorCard } from "@/components/dashboard/sensor-card"
 import { StateMessage } from "@/components/dashboard/state-message"
 import { WaterStatusPanel } from "@/components/dashboard/water-status-panel"
-import { useLatestMeasurement, useNodes } from "@/hooks/use-telemetry"
+import {
+  HISTORY_LIMIT,
+  useHistoricalMeasurements,
+  useLatestMeasurement,
+  useNodes,
+} from "@/hooks/use-telemetry"
 import { SENSORS } from "@/lib/sensors"
+import type { TimePreset, TimeRange } from "@/lib/time-range"
 import { getAlertReasons, getConnectionState, getSensorSeverity } from "@/lib/water"
 
 function useNow(intervalMs = 1_000) {
@@ -15,6 +23,45 @@ function useNow(intervalMs = 1_000) {
     return () => clearInterval(id)
   }, [intervalMs])
   return now
+}
+
+function HistorySection({ nodeId }: { nodeId: string }) {
+  const [preset, setPreset] = useState<TimePreset>("1h")
+  const [customRange, setCustomRange] = useState<TimeRange>()
+  const history = useHistoricalMeasurements(nodeId, preset, customRange)
+  const rows = history.data?.rows ?? []
+
+  return (
+    <section aria-labelledby="history-title" className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 id="history-title" className="font-heading text-lg font-semibold">Histórico</h2>
+          <p className="text-xs text-muted-foreground">
+            {`${rows.length} mediciones en el periodo`}
+            {history.data?.truncated && ` · se muestran las ${HISTORY_LIMIT} más recientes`}
+            {history.isFetching && " · actualizando…"}
+          </p>
+        </div>
+        <TimeRangeFilter
+          preset={preset}
+          customRange={customRange}
+          onChange={(nextPreset, range) => {
+            setPreset(nextPreset)
+            if (range) setCustomRange(range)
+          }}
+        />
+      </div>
+      {history.isPending ? (
+        <StateMessage title="Cargando histórico…" />
+      ) : history.isError && !rows.length ? (
+        <StateMessage tone="error" title="No se pudo obtener el histórico." onRetry={() => history.refetch()} />
+      ) : !rows.length ? (
+        <StateMessage title="No existen mediciones en el periodo seleccionado." />
+      ) : (
+        <HistoryCharts rows={rows} />
+      )}
+    </section>
+  )
 }
 
 export function App() {
@@ -85,6 +132,7 @@ export function App() {
             </section>
           </>
         )}
+        {selectedNode && measurement && <HistorySection nodeId={selectedNode} />}
       </main>
     </div>
   )
