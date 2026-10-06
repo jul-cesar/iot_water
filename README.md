@@ -53,7 +53,7 @@ Cree dos aplicaciones desde este mismo repositorio:
 | Aplicación | Directorio base | Build |
 | --- | --- | --- |
 | Backend | `backend` | Nixpacks; usa `uv.lock` y `nixpacks.toml` |
-| Dashboard | `dashboard` | Vite; usa `package-lock.json` |
+| Dashboard | `dashboard` | Nixpacks con Node.js 22 y Vite; usa `package-lock.json` |
 
 Configure las variables de entorno por aplicación. El backend requiere `DATABASE_URL`; no exponga PostgreSQL al collector ni al dashboard.
 

@@ -15,7 +15,7 @@
 - Default API URL: `https://iot.julcesar.xyz`; allow override through `VITE_API_URL`.
 - Poll the selected node's latest measurement every 2,000 ms.
 - Treat a reading older than 15,000 ms as `NO_DATA`.
-- Use backend `water_status` as the sole general-status source; frontend rules only explain pH and turbidity.
+- Use backend `water_status` (`OPTIMAL`, `WARNING`, or `CRITICAL`) as the sole general-status source; frontend rules only explain pH and turbidity.
 - Never invent a node that is absent from `GET /api/nodes`.
 - Request at most 2,000 chart records and 20 table records per page.
 - Render UTC timestamps in the user's local timezone with native `Intl` APIs.
@@ -54,7 +54,7 @@ Run from the repository root:
 
 ```bash
 npm install --prefix dashboard @tanstack/react-query
-npm pkg set --prefix dashboard scripts.test="node --test src/lib/*.test.ts"
+npm pkg set --prefix dashboard scripts.test="node --test"
 ```
 
 Expected: `dashboard/package.json` contains `@tanstack/react-query` and `npm test --prefix dashboard` resolves the Node test runner.
