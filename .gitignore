@@ -18,7 +18,8 @@ coverage/
 
 # Local configuration
 .env
-**/.env
+.env.*
+!.env.example
 
 # Editors and operating systems
 .vscode/
