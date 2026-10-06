@@ -1,4 +1,12 @@
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ReferenceArea,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart"
@@ -7,14 +15,17 @@ import { SENSORS } from "@/lib/sensors"
 import { formatLocalDate } from "@/lib/water"
 
 const timeTick = (t: number, spansDays: boolean) =>
-  new Intl.DateTimeFormat(undefined, spansDays
-    ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }
-    : { hour: "2-digit", minute: "2-digit", second: "2-digit" },
+  new Intl.DateTimeFormat(
+    undefined,
+    spansDays
+      ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }
+      : { hour: "2-digit", minute: "2-digit", second: "2-digit" }
   ).format(t)
 
 export function HistoryCharts({ rows }: { rows: Measurement[] }) {
   const data = rows.map((row) => ({ ...row, t: Date.parse(row.created_at) }))
-  const spansDays = data.length > 1 && data[data.length - 1].t - data[0].t > 86_400_000
+  const spansDays =
+    data.length > 1 && data[data.length - 1].t - data[0].t > 86_400_000
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -23,12 +34,16 @@ export function HistoryCharts({ rows }: { rows: Measurement[] }) {
           <CardHeader>
             <CardTitle>
               {sensor.label}
-              {sensor.unit && <span className="text-muted-foreground"> ({sensor.unit})</span>}
+              {sensor.unit && (
+                <span className="text-muted-foreground"> ({sensor.unit})</span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ChartContainer
-              config={{ [sensor.key]: { label: sensor.label, color: sensor.color } }}
+              config={{
+                [sensor.key]: { label: sensor.label, color: sensor.color },
+              }}
               className="aspect-auto h-52 w-full"
               aria-label={`Gráfica histórica de ${sensor.label}`}
               role="img"
@@ -50,17 +65,51 @@ export function HistoryCharts({ rows }: { rows: Measurement[] }) {
                   domain={["auto", "auto"]}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(v: number) => v.toFixed(sensor.decimals > 1 ? 1 : 0)}
+                  tickFormatter={(v: number) =>
+                    v.toFixed(sensor.decimals > 1 ? 1 : 0)
+                  }
                 />
+                {sensor.normal && (
+                  <ReferenceArea
+                    y1={sensor.normal[0]}
+                    y2={sensor.normal[1]}
+                    ifOverflow="extendDomain"
+                    fill="var(--success)"
+                    fillOpacity={0.08}
+                    stroke="none"
+                  />
+                )}
+                {sensor.warningAt?.map((y) => (
+                  <ReferenceLine
+                    key={`w${y}`}
+                    y={y}
+                    ifOverflow="extendDomain"
+                    stroke="var(--warning)"
+                    strokeDasharray="4 4"
+                  />
+                ))}
+                {sensor.criticalAt?.map((y) => (
+                  <ReferenceLine
+                    key={`c${y}`}
+                    y={y}
+                    ifOverflow="extendDomain"
+                    stroke="var(--destructive)"
+                    strokeDasharray="4 4"
+                  />
+                ))}
                 <ChartTooltip
                   content={({ active, payload }) => {
-                    const row = payload?.[0]?.payload as (Measurement & { t: number }) | undefined
+                    const row = payload?.[0]?.payload as
+                      (Measurement & { t: number }) | undefined
                     if (!active || !row) return null
                     return (
                       <div className="grid gap-1 border bg-background px-2.5 py-1.5 text-xs shadow-xl">
-                        <span className="text-muted-foreground">{formatLocalDate(row.created_at)}</span>
+                        <span className="text-muted-foreground">
+                          {formatLocalDate(row.created_at)}
+                        </span>
                         <span className="font-mono font-medium tabular-nums">
-                          {row[sensor.key].toFixed(sensor.decimals)} {sensor.unit}
+                          {row[sensor.key].toFixed(sensor.decimals)}{" "}
+                          {sensor.unit}
                         </span>
                       </div>
                     )
@@ -76,6 +125,33 @@ export function HistoryCharts({ rows }: { rows: Measurement[] }) {
                 />
               </LineChart>
             </ChartContainer>
+            {sensor.normal && (
+              <p className="mt-2 flex flex-wrap gap-x-3 text-[0.7rem] text-muted-foreground">
+                <span>
+                  <span
+                    className="mr-1 inline-block size-2 bg-success/40"
+                    aria-hidden
+                  />
+                  Rango normal {sensor.normal[0]}–{sensor.normal[1]}
+                </span>
+                {sensor.warningAt && (
+                  <span>
+                    <span
+                      className="mr-1 inline-block h-0.5 w-3 bg-warning align-middle"
+                      aria-hidden
+                    />
+                    Advertencia
+                  </span>
+                )}
+                <span>
+                  <span
+                    className="mr-1 inline-block h-0.5 w-3 bg-destructive align-middle"
+                    aria-hidden
+                  />
+                  Crítico
+                </span>
+              </p>
+            )}
           </CardContent>
         </Card>
       ))}
