@@ -17,6 +17,21 @@ npm run lint && npm run build
 | -------------- | -------------------------- | ---------------------- |
 | `VITE_API_URL` | `https://iot.julcesar.xyz` | URL base del backend   |
 
+`VITE_API_URL` se incrusta en tiempo de **build**: cambiarla requiere reconstruir la imagen.
+
+## Despliegue (Docker)
+
+```bash
+docker build -t iot-water-dashboard --build-arg VITE_API_URL=https://iot.julcesar.xyz .
+docker run -p 8080:8080 iot-water-dashboard   # http://localhost:8080
+```
+
+- Imagen final: nginx sin root, puerto **8080**, healthcheck en `/health`.
+- El build ejecuta `npm test` y falla si alguna prueba falla.
+- Rutas desconocidas sirven `index.html`; `/assets/*` se cachea 1 año (nombres con hash).
+- En Dokploy/Coolify: tipo *Dockerfile*, contexto `dashboard/`, puerto 8080, build arg `VITE_API_URL`.
+- El backend debe permitir el origen del dashboard en `CORS_ORIGINS` (hoy `*`).
+
 ## API consumida
 
 - `GET /api/nodes` → `string[]`
