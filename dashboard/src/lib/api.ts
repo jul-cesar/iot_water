@@ -58,3 +58,10 @@ export function getMeasurements(
   if (offset !== undefined) url.searchParams.set("offset", String(offset))
   return requestJson<Measurement[]>(url, signal)
 }
+
+export const PAGE_SIZE = 20
+
+export function getNextOffset(lastPage: unknown[], pages: unknown[][]) {
+  // ponytail: a full last page may be the final one; costs one empty request.
+  return lastPage.length < PAGE_SIZE ? undefined : pages.length * PAGE_SIZE
+}

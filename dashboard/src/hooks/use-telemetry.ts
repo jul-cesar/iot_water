@@ -1,6 +1,12 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query"
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query"
 
-import { getLatestMeasurement, getMeasurements, getNodes } from "@/lib/api"
+import {
+  PAGE_SIZE,
+  getLatestMeasurement,
+  getMeasurements,
+  getNextOffset,
+  getNodes,
+} from "@/lib/api"
 import { getPresetRange, type TimePreset, type TimeRange } from "@/lib/time-range"
 
 export const HISTORY_LIMIT = 2_000
@@ -8,6 +14,7 @@ export const HISTORY_LIMIT = 2_000
 export const telemetryKeys = {
   nodes: ["nodes"] as const,
   latest: (nodeId: string) => ["latest", nodeId] as const,
+  recent: (nodeId: string) => ["recent", nodeId] as const,
   history: (nodeId: string, preset: TimePreset, range?: TimeRange) =>
     ["history", nodeId, preset, range?.from, range?.to] as const,
 }
@@ -49,5 +56,17 @@ export function useHistoricalMeasurements(
     enabled: Boolean(nodeId) && (preset !== "custom" || Boolean(customRange)),
     refetchInterval: preset === "custom" ? false : 10_000,
     placeholderData: keepPreviousData,
+  })
+}
+
+export function useRecentMeasurements(nodeId: string | undefined) {
+  return useInfiniteQuery({
+    queryKey: telemetryKeys.recent(nodeId ?? ""),
+    queryFn: ({ pageParam, signal }) =>
+      getMeasurements({ nodeId, limit: PAGE_SIZE, offset: pageParam }, signal),
+    initialPageParam: 0,
+    getNextPageParam: getNextOffset,
+    refetchInterval: 10_000,
+    enabled: Boolean(nodeId),
   })
 }

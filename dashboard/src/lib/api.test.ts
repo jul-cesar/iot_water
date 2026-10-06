@@ -60,3 +60,12 @@ test("measurements serializes every supported filter", async () => {
     offset: "40",
   })
 })
+
+test("next offset continues only after a full page", async () => {
+  const { getNextOffset } = await import("./api.ts")
+  const page = (n: number) => Array.from({ length: n })
+  assert.equal(getNextOffset(page(20), [page(20)]), 20)
+  assert.equal(getNextOffset(page(20), [page(20), page(20)]), 40)
+  assert.equal(getNextOffset(page(7), [page(20), page(7)]), undefined)
+  assert.equal(getNextOffset(page(0), [page(0)]), undefined)
+})

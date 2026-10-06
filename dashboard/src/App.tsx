@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 
+import { MeasurementsTable } from "@/components/dashboard/measurements-table"
 import { HistoryCharts } from "@/components/dashboard/history-charts"
 import { TimeRangeFilter } from "@/components/dashboard/time-range-filter"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
@@ -11,6 +12,7 @@ import {
   useHistoricalMeasurements,
   useLatestMeasurement,
   useNodes,
+  useRecentMeasurements,
 } from "@/hooks/use-telemetry"
 import { SENSORS } from "@/lib/sensors"
 import type { TimePreset, TimeRange } from "@/lib/time-range"
@@ -59,6 +61,34 @@ function HistorySection({ nodeId }: { nodeId: string }) {
         <StateMessage title="No existen mediciones en el periodo seleccionado." />
       ) : (
         <HistoryCharts rows={rows} />
+      )}
+    </section>
+  )
+}
+
+function RecentSection({ nodeId }: { nodeId: string }) {
+  const recent = useRecentMeasurements(nodeId)
+  const rows = recent.data?.pages.flat() ?? []
+  // Pages shift as new readings arrive; drop duplicates by id.
+  const seen = new Set<number>()
+  const unique = rows.filter((row) => !seen.has(row.id) && Boolean(seen.add(row.id)))
+
+  return (
+    <section aria-labelledby="recent-title" className="flex flex-col gap-4">
+      <h2 id="recent-title" className="font-heading text-lg font-semibold">Mediciones recientes</h2>
+      {recent.isPending ? (
+        <StateMessage title="Cargando mediciones…" />
+      ) : recent.isError && !unique.length ? (
+        <StateMessage tone="error" title="No se pudieron obtener las mediciones." onRetry={() => recent.refetch()} />
+      ) : !unique.length ? (
+        <StateMessage title="No existen mediciones para este dispositivo." />
+      ) : (
+        <MeasurementsTable
+          rows={unique}
+          hasMore={recent.hasNextPage}
+          loadingMore={recent.isFetchingNextPage}
+          onLoadMore={() => recent.fetchNextPage()}
+        />
       )}
     </section>
   )
@@ -132,7 +162,12 @@ export function App() {
             </section>
           </>
         )}
-        {selectedNode && measurement && <HistorySection nodeId={selectedNode} />}
+        {selectedNode && measurement && (
+          <>
+            <HistorySection nodeId={selectedNode} />
+            <RecentSection nodeId={selectedNode} />
+          </>
+        )}
       </main>
     </div>
   )
