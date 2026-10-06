@@ -105,6 +105,18 @@ def test_invalid_date_range_returns_422(client: TestClient) -> None:
     assert response.status_code == 422
 
 
+def test_mixed_timezone_date_range_returns_422(client: TestClient) -> None:
+    response = client.get(
+        "/api/measurements",
+        params={
+            "from_date": "2026-01-01T00:00:00",
+            "to_date": "2026-02-01T00:00:00Z",
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_health_checks_database(client: TestClient) -> None:
     response = client.get("/health")
 

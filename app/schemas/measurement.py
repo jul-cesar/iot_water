@@ -15,6 +15,8 @@ NodeId = Annotated[str, StringConstraints(max_length=100)]
 
 
 class MeasurementBase(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
+
     node_id: NodeId
     temperature: float = Field(ge=-50, le=100)
     ph: float = Field(ge=0, le=14)

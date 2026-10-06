@@ -46,6 +46,15 @@ def test_measurement_rejects_invalid_values(field: str, value: object) -> None:
         MeasurementCreate(**valid_payload(**{field: value}))
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("ph", float("nan")), ("turbidity", float("inf"))],
+)
+def test_measurement_rejects_non_finite_values(field: str, value: float) -> None:
+    with pytest.raises(ValidationError):
+        MeasurementCreate(**valid_payload(**{field: value}))
+
+
 def test_measurement_accepts_validation_boundaries() -> None:
     low = MeasurementCreate(**valid_payload(temperature=-50, ph=0))
     high = MeasurementCreate(**valid_payload(temperature=100, ph=14))

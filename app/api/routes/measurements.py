@@ -1,7 +1,7 @@
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import AwareDatetime
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -37,8 +37,8 @@ def create(data: MeasurementCreate, db: DbSession) -> MeasurementResponse:
 def list_all(
     db: DbSession,
     node_id: str | None = None,
-    from_date: datetime | None = None,
-    to_date: datetime | None = None,
+    from_date: AwareDatetime | None = None,
+    to_date: AwareDatetime | None = None,
     limit: Annotated[int, Query(ge=1, le=1000)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[MeasurementResponse]:
