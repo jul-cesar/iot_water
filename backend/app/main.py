@@ -14,6 +14,9 @@ from app.api.routes.measurements import router as measurements_router
 from app.core.config import settings
 from app.core.database import Base, engine
 
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 

@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -15,6 +16,7 @@ from app.services.measurement_service import (
     to_response,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Measurements"])
 DbSession = Annotated[Session, Depends(get_db)]
 
@@ -26,7 +28,19 @@ DbSession = Annotated[Session, Depends(get_db)]
     summary="Store a water measurement",
 )
 def create(data: MeasurementCreate, db: DbSession) -> MeasurementResponse:
-    return to_response(create_measurement(db, data))
+    measurement = to_response(create_measurement(db, data))
+    logger.info(
+        "Measurement #%s node=%s temp=%s ph=%s turbidity=%s tds=%s level=%s status=%s",
+        measurement.id,
+        measurement.node_id,
+        measurement.temperature,
+        measurement.ph,
+        measurement.turbidity,
+        measurement.tds,
+        measurement.level,
+        measurement.water_status.value,
+    )
+    return measurement
 
 
 @router.get(

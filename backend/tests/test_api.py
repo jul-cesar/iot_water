@@ -140,3 +140,15 @@ def test_database_errors_return_generic_503() -> None:
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}
     assert sensitive_marker not in response.text
+
+
+def test_post_logs_received_measurement(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level("INFO", logger="app.api.routes.measurements"):
+        client.post("/api/measurements", json=payload())
+
+    assert (
+        "Measurement #1 node=Nodo_01_Agua temp=30.7 ph=3.95 turbidity=8.6 "
+        "tds=73.0 level=0.0 status=CRITICAL"
+    ) in caplog.text
