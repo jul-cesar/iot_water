@@ -149,6 +149,7 @@ def test_post_logs_received_measurement(
         client.post("/api/measurements", json=payload())
 
     assert (
-        "Measurement #1 node=Nodo_01_Agua temp=30.7 ph=3.95 turbidity=8.6 "
+        "Measurement #1 temp=30.7 ph=3.95 turbidity=8.6 "
         "tds=73.0 level=0.0 status=CRITICAL"
     ) in caplog.text
+    assert "node=" not in caplog.text

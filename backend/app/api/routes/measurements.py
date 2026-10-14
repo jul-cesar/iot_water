@@ -30,9 +30,8 @@ DbSession = Annotated[Session, Depends(get_db)]
 def create(data: MeasurementCreate, db: DbSession) -> MeasurementResponse:
     measurement = to_response(create_measurement(db, data))
     logger.info(
-        "Measurement #%s node=%s temp=%s ph=%s turbidity=%s tds=%s level=%s status=%s",
+        "Measurement #%s temp=%s ph=%s turbidity=%s tds=%s level=%s status=%s",
         measurement.id,
-        measurement.node_id,
         measurement.temperature,
         measurement.ph,
         measurement.turbidity,
