@@ -1,7 +1,10 @@
+import csv
+import io
 import logging
+from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import AwareDatetime
 from sqlalchemy.orm import Session
 
@@ -21,6 +24,23 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Measurements"])
 DbSession = Annotated[Session, Depends(get_db)]
 HistoryAccess = Annotated[None, Depends(require_history_access)]
+MAX_EXPORT_ROWS = 50_000
+_EXPORT_COLUMNS = (
+    "created_at",
+    "node_id",
+    "temperature",
+    "ph",
+    "turbidity",
+    "tds",
+    "level",
+    "water_status",
+)
+
+
+def _spreadsheet_safe(value: object) -> object:
+    if isinstance(value, str) and value.startswith(("=", "+", "-", "@")):
+        return f"'{value}"
+    return value
 
 
 @router.post(
@@ -72,6 +92,59 @@ def list_all(
         offset=offset,
     )
     return [to_response(measurement) for measurement in measurements]
+
+
+@router.get(
+    "/measurements/export.csv",
+    summary="Export water measurement history as CSV",
+)
+def export_csv(
+    db: DbSession,
+    _: HistoryAccess,
+    node_id: str,
+    from_date: AwareDatetime,
+    to_date: AwareDatetime,
+) -> Response:
+    if from_date > to_date or to_date - from_date > timedelta(days=31):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Select a date range of up to 31 days",
+        )
+
+    measurements = list_measurements(
+        db,
+        node_id=node_id,
+        from_date=from_date,
+        to_date=to_date,
+        limit=MAX_EXPORT_ROWS + 1,
+    )
+    if len(measurements) > MAX_EXPORT_ROWS:
+        raise HTTPException(status_code=413, detail="Select a shorter date range")
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(_EXPORT_COLUMNS)
+    for measurement in reversed(measurements):
+        row = to_response(measurement)
+        writer.writerow(
+            [
+                row.created_at.isoformat(),
+                _spreadsheet_safe(row.node_id),
+                row.temperature,
+                row.ph,
+                row.turbidity,
+                row.tds,
+                row.level,
+                row.water_status.value,
+            ]
+        )
+
+    filename = f"measurements-{from_date.date()}-{to_date.date()}.csv"
+    return Response(
+        content="\ufeff" + output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get(

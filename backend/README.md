@@ -98,6 +98,7 @@ La documentación Swagger estará en:
 | GET | `/health` | Comprueba la API y ejecuta `SELECT 1` en PostgreSQL |
 | POST | `/api/measurements` | Guarda una medición |
 | GET | `/api/measurements` | Lista y filtra mediciones; requiere HTTP Basic |
+| GET | `/api/measurements/export.csv` | Exporta hasta 31 días y 50 000 filas; requiere HTTP Basic |
 | GET | `/api/measurements/latest` | Devuelve la medición más reciente |
 | GET | `/api/measurements/{id}` | Busca una medición por ID; requiere HTTP Basic |
 | GET | `/api/nodes` | Lista los nodos conocidos |
@@ -127,6 +128,7 @@ La respuesta incluye `id`, `created_at` y `water_status`. Un pH bajo o una turbi
 
 ```bash
 curl -u admin:SU_CLAVE "http://localhost:8000/api/measurements?node_id=Nodo_01_Agua&limit=50"
+curl -u admin:SU_CLAVE -OJ "http://localhost:8000/api/measurements/export.csv?node_id=Nodo_01_Agua&from_date=2026-10-01T00:00:00Z&to_date=2026-10-08T00:00:00Z"
 curl "http://localhost:8000/api/measurements/latest?node_id=Nodo_01_Agua"
 curl http://localhost:8000/api/nodes
 curl http://localhost:8000/health

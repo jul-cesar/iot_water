@@ -1,4 +1,7 @@
+import csv
+import io
 from collections.abc import Generator
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -166,6 +169,137 @@ def test_mixed_timezone_date_range_returns_422(client: TestClient) -> None:
     )
 
     assert response.status_code == 422
+
+
+def export_params(node_id: str = "Nodo_01_Agua") -> dict[str, str]:
+    now = datetime.now(timezone.utc)
+    return {
+        "node_id": node_id,
+        "from_date": (now - timedelta(minutes=1)).isoformat(),
+        "to_date": (now + timedelta(minutes=1)).isoformat(),
+    }
+
+
+def test_export_requires_valid_credentials(client: TestClient) -> None:
+    missing = client.get("/api/measurements/export.csv", params=export_params())
+    wrong = client.get(
+        "/api/measurements/export.csv",
+        params=export_params(),
+        auth=("admin", "wrong"),
+    )
+
+    for response in (missing, wrong):
+        assert response.status_code == 401
+        assert response.json() == {"detail": "Invalid history credentials"}
+        assert response.headers["www-authenticate"] == "Basic"
+
+
+def test_export_returns_chronological_excel_compatible_csv(
+    client: TestClient,
+) -> None:
+    client.post("/api/measurements", json=payload(temperature=10))
+    client.post("/api/measurements", json=payload(temperature=20))
+
+    response = client.get(
+        "/api/measurements/export.csv",
+        params=export_params(),
+        auth=HISTORY_AUTH,
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert response.headers["content-disposition"].startswith("attachment;")
+    assert response.content.startswith("\ufeff".encode())
+    rows = list(csv.reader(io.StringIO(response.text.removeprefix("\ufeff"))))
+    assert rows[0] == [
+        "created_at",
+        "node_id",
+        "temperature",
+        "ph",
+        "turbidity",
+        "tds",
+        "level",
+        "water_status",
+    ]
+    assert [row[2] for row in rows[1:]] == ["10.0", "20.0"]
+
+
+@pytest.mark.parametrize("prefix", ["=", "+", "-", "@"])
+def test_export_escapes_csv_and_neutralizes_spreadsheet_formulas(
+    client: TestClient, prefix: str
+) -> None:
+    dangerous_node = f'{prefix}1+1,"quoted"\nnext'
+    client.post("/api/measurements", json=payload(dangerous_node))
+
+    response = client.get(
+        "/api/measurements/export.csv",
+        params=export_params(dangerous_node),
+        auth=HISTORY_AUTH,
+    )
+
+    assert response.status_code == 200
+    rows = list(csv.reader(io.StringIO(response.text.removeprefix("\ufeff"))))
+    assert rows[1][1] == f"'{dangerous_node}"
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"node_id": "Nodo_01_Agua", "to_date": "2026-02-01T00:00:00Z"},
+        {"node_id": "Nodo_01_Agua", "from_date": "2026-01-01T00:00:00Z"},
+        {
+            "node_id": "Nodo_01_Agua",
+            "from_date": "2026-02-01T00:00:00Z",
+            "to_date": "2026-01-01T00:00:00Z",
+        },
+        {
+            "node_id": "Nodo_01_Agua",
+            "from_date": "2026-01-01T00:00:00Z",
+            "to_date": "2026-02-01T00:00:01Z",
+        },
+    ],
+)
+def test_export_rejects_missing_reversed_or_excessive_ranges(
+    client: TestClient, params: dict[str, str]
+) -> None:
+    response = client.get(
+        "/api/measurements/export.csv", params=params, auth=HISTORY_AUTH
+    )
+
+    assert response.status_code == 422
+
+
+def test_export_accepts_exactly_thirty_one_days(client: TestClient) -> None:
+    response = client.get(
+        "/api/measurements/export.csv",
+        params={
+            "node_id": "Nodo_01_Agua",
+            "from_date": "2026-01-01T00:00:00Z",
+            "to_date": "2026-02-01T00:00:00Z",
+        },
+        auth=HISTORY_AUTH,
+    )
+
+    assert response.status_code == 200
+
+
+def test_export_rejects_results_above_row_cap(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.api.routes import measurements as measurement_routes
+
+    monkeypatch.setattr(measurement_routes, "MAX_EXPORT_ROWS", 1)
+    client.post("/api/measurements", json=payload(temperature=10))
+    client.post("/api/measurements", json=payload(temperature=20))
+
+    response = client.get(
+        "/api/measurements/export.csv",
+        params=export_params(),
+        auth=HISTORY_AUTH,
+    )
+
+    assert response.status_code == 413
+    assert response.json() == {"detail": "Select a shorter date range"}
 
 
 def test_health_checks_database(client: TestClient) -> None:
