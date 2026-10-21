@@ -68,9 +68,17 @@ APP_NAME=Water IoT API
 APP_ENV=development
 API_PREFIX=/api
 CORS_ORIGINS=*
+HISTORY_USERNAME=admin
+HISTORY_PASSWORD_HASH=CHANGE_ME
 ```
 
-No agregue `.env` al repositorio. La aplicación no registra `DATABASE_URL` ni credenciales.
+Genere el hash de la contraseña compartida antes de iniciar la API:
+
+```bash
+uv run python -c "from app.core.history_auth import hash_history_password; print(hash_history_password('CAMBIE_ESTA_CLAVE'))"
+```
+
+Copie el resultado en `HISTORY_PASSWORD_HASH`. No agregue `.env` al repositorio. La aplicación no registra `DATABASE_URL` ni credenciales.
 
 ### 4. Iniciar la API
 
@@ -89,9 +97,10 @@ La documentación Swagger estará en:
 | --- | --- | --- |
 | GET | `/health` | Comprueba la API y ejecuta `SELECT 1` en PostgreSQL |
 | POST | `/api/measurements` | Guarda una medición |
-| GET | `/api/measurements` | Lista y filtra mediciones |
+| GET | `/api/measurements` | Lista y filtra mediciones; requiere HTTP Basic |
+| GET | `/api/measurements/export.csv` | Exporta hasta 31 días y 50 000 filas; requiere HTTP Basic |
 | GET | `/api/measurements/latest` | Devuelve la medición más reciente |
-| GET | `/api/measurements/{id}` | Busca una medición por ID |
+| GET | `/api/measurements/{id}` | Busca una medición por ID; requiere HTTP Basic |
 | GET | `/api/nodes` | Lista los nodos conocidos |
 
 La lista admite `node_id`, `from_date`, `to_date`, `limit` (1–1000) y `offset`.
@@ -118,7 +127,8 @@ La respuesta incluye `id`, `created_at` y `water_status`. Un pH bajo o una turbi
 ### Consultar mediciones
 
 ```bash
-curl "http://localhost:8000/api/measurements?node_id=Nodo_01_Agua&limit=50"
+curl -u admin:SU_CLAVE "http://localhost:8000/api/measurements?node_id=Nodo_01_Agua&limit=50"
+curl -u admin:SU_CLAVE -OJ "http://localhost:8000/api/measurements/export.csv?node_id=Nodo_01_Agua&from_date=2026-10-01T00:00:00Z&to_date=2026-10-08T00:00:00Z"
 curl "http://localhost:8000/api/measurements/latest?node_id=Nodo_01_Agua"
 curl http://localhost:8000/api/nodes
 curl http://localhost:8000/health
@@ -197,7 +207,7 @@ El contenedor ejecuta Uvicorn como usuario no root e incluye un healthcheck.
 4. Configure `CORS_ORIGINS` con los dominios reales del dashboard.
 5. Ejecute `docker build -t water-iot-api .`.
 6. Inicie el contenedor con el comando anterior y revise `/health` y `/docs`.
-7. Coloque Nginx, Caddy o el proxy de la VPS delante del puerto 8000 para publicar HTTPS.
+7. Coloque Nginx, Caddy o el proxy de la VPS delante del puerto 8000 para publicar HTTPS y limitar intentos fallidos contra las rutas de historial.
 8. Permita en el firewall únicamente los puertos públicos necesarios. PostgreSQL no debe exponerse públicamente para el collector.
 9. Configure copias de seguridad de PostgreSQL y supervise el healthcheck del contenedor.
 

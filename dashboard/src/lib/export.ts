@@ -1,36 +1,7 @@
-import type { Measurement, WaterStatus } from "./api.ts"
+import type { WaterStatus } from "./api.ts"
 import type { ConnectionState } from "./water.ts"
 
-const COLUMNS = [
-  "created_at",
-  "node_id",
-  "temperature",
-  "ph",
-  "turbidity",
-  "tds",
-  "level",
-  "water_status",
-] as const satisfies readonly (keyof Measurement)[]
-
-const cell = (value: unknown) => {
-  const text = String(value)
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
-}
-
-export function toCsv(rows: Measurement[]): string {
-  return [
-    COLUMNS.join(","),
-    ...rows.map((row) => COLUMNS.map((key) => cell(row[key])).join(",")),
-  ]
-    .join("\r\n")
-    .concat("\r\n")
-}
-
-export function downloadCsv(rows: Measurement[], filename: string) {
-  // BOM so Excel opens UTF-8 correctly.
-  const blob = new Blob(["\uFEFF", toCsv(rows)], {
-    type: "text/csv;charset=utf-8",
-  })
+export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const link = Object.assign(document.createElement("a"), {
     href: url,

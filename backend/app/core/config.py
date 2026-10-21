@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     app_env: str = "development"
     api_prefix: str = "/api"
     cors_origins: CorsOrigins = ["*"]
+    history_username: str = "admin"
+    history_password_hash: str = ""
 
 
 settings = Settings()
