@@ -68,9 +68,17 @@ APP_NAME=Water IoT API
 APP_ENV=development
 API_PREFIX=/api
 CORS_ORIGINS=*
+HISTORY_USERNAME=admin
+HISTORY_PASSWORD_HASH=CHANGE_ME
 ```
 
-No agregue `.env` al repositorio. La aplicación no registra `DATABASE_URL` ni credenciales.
+Genere el hash de la contraseña compartida antes de iniciar la API:
+
+```bash
+uv run python -c "from app.core.history_auth import hash_history_password; print(hash_history_password('CAMBIE_ESTA_CLAVE'))"
+```
+
+Copie el resultado en `HISTORY_PASSWORD_HASH`. No agregue `.env` al repositorio. La aplicación no registra `DATABASE_URL` ni credenciales.
 
 ### 4. Iniciar la API
 
@@ -89,9 +97,9 @@ La documentación Swagger estará en:
 | --- | --- | --- |
 | GET | `/health` | Comprueba la API y ejecuta `SELECT 1` en PostgreSQL |
 | POST | `/api/measurements` | Guarda una medición |
-| GET | `/api/measurements` | Lista y filtra mediciones |
+| GET | `/api/measurements` | Lista y filtra mediciones; requiere HTTP Basic |
 | GET | `/api/measurements/latest` | Devuelve la medición más reciente |
-| GET | `/api/measurements/{id}` | Busca una medición por ID |
+| GET | `/api/measurements/{id}` | Busca una medición por ID; requiere HTTP Basic |
 | GET | `/api/nodes` | Lista los nodos conocidos |
 
 La lista admite `node_id`, `from_date`, `to_date`, `limit` (1–1000) y `offset`.
@@ -118,7 +126,7 @@ La respuesta incluye `id`, `created_at` y `water_status`. Un pH bajo o una turbi
 ### Consultar mediciones
 
 ```bash
-curl "http://localhost:8000/api/measurements?node_id=Nodo_01_Agua&limit=50"
+curl -u admin:SU_CLAVE "http://localhost:8000/api/measurements?node_id=Nodo_01_Agua&limit=50"
 curl "http://localhost:8000/api/measurements/latest?node_id=Nodo_01_Agua"
 curl http://localhost:8000/api/nodes
 curl http://localhost:8000/health

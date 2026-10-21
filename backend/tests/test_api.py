@@ -10,6 +10,8 @@ from sqlalchemy.pool import StaticPool
 from app.core.database import Base, get_db
 from app.main import app
 
+HISTORY_AUTH = ("admin", "test-password")
+
 
 @pytest.fixture
 def session() -> Generator[Session, None, None]:
@@ -67,6 +69,7 @@ def test_list_filters_and_paginates_measurements(client: TestClient) -> None:
     response = client.get(
         "/api/measurements",
         params={"node_id": "Nodo_A", "limit": 1, "offset": 1},
+        auth=HISTORY_AUTH,
     )
 
     assert response.status_code == 200
@@ -84,13 +87,59 @@ def test_latest_detail_and_nodes(client: TestClient) -> None:
         ]
         == first["id"]
     )
-    assert client.get(f"/api/measurements/{first['id']}").json()["node_id"] == "Nodo_B"
+    assert (
+        client.get(f"/api/measurements/{first['id']}", auth=HISTORY_AUTH).json()[
+            "node_id"
+        ]
+        == "Nodo_B"
+    )
     assert client.get("/api/nodes").json() == ["Nodo_A", "Nodo_B"]
 
 
 def test_missing_measurements_return_404(client: TestClient) -> None:
     assert client.get("/api/measurements/latest").status_code == 404
-    assert client.get("/api/measurements/999").status_code == 404
+    assert client.get("/api/measurements/999", auth=HISTORY_AUTH).status_code == 404
+
+
+def test_history_routes_require_credentials(client: TestClient) -> None:
+    for path in ("/api/measurements", "/api/measurements/1"):
+        response = client.get(path)
+        assert response.status_code == 401
+        assert response.json() == {"detail": "Invalid history credentials"}
+        assert response.headers["www-authenticate"] == "Basic"
+
+
+@pytest.mark.parametrize(
+    "auth",
+    [("admin", "wrong"), ("wrong", "test-password")],
+)
+def test_wrong_history_credentials_are_rejected(
+    client: TestClient, auth: tuple[str, str]
+) -> None:
+    response = client.get("/api/measurements", auth=auth)
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid history credentials"}
+    assert response.headers["www-authenticate"] == "Basic"
+
+
+def test_generated_history_hash_authenticates(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.core.config import settings
+    from app.core.history_auth import hash_history_password
+
+    monkeypatch.setattr(
+        settings,
+        "history_password_hash",
+        hash_history_password("generated-password", salt=b"generated-salt-1"),
+    )
+
+    response = client.get(
+        "/api/measurements", auth=("admin", "generated-password")
+    )
+
+    assert response.status_code == 200
 
 
 def test_invalid_date_range_returns_422(client: TestClient) -> None:
@@ -100,6 +149,7 @@ def test_invalid_date_range_returns_422(client: TestClient) -> None:
             "from_date": "2026-02-01T00:00:00Z",
             "to_date": "2026-01-01T00:00:00Z",
         },
+        auth=HISTORY_AUTH,
     )
 
     assert response.status_code == 422
@@ -112,6 +162,7 @@ def test_mixed_timezone_date_range_returns_422(client: TestClient) -> None:
             "from_date": "2026-01-01T00:00:00",
             "to_date": "2026-02-01T00:00:00Z",
         },
+        auth=HISTORY_AUTH,
     )
 
     assert response.status_code == 422

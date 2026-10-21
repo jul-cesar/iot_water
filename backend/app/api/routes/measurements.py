@@ -6,6 +6,7 @@ from pydantic import AwareDatetime
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.history_auth import require_history_access
 from app.schemas.measurement import MeasurementCreate, MeasurementResponse
 from app.services.measurement_service import (
     create_measurement,
@@ -19,6 +20,7 @@ from app.services.measurement_service import (
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Measurements"])
 DbSession = Annotated[Session, Depends(get_db)]
+HistoryAccess = Annotated[None, Depends(require_history_access)]
 
 
 @router.post(
@@ -49,6 +51,7 @@ def create(data: MeasurementCreate, db: DbSession) -> MeasurementResponse:
 )
 def list_all(
     db: DbSession,
+    _: HistoryAccess,
     node_id: str | None = None,
     from_date: AwareDatetime | None = None,
     to_date: AwareDatetime | None = None,
@@ -88,7 +91,9 @@ def latest(db: DbSession, node_id: str | None = None) -> MeasurementResponse:
     response_model=MeasurementResponse,
     summary="Get a water measurement by ID",
 )
-def by_id(measurement_id: int, db: DbSession) -> MeasurementResponse:
+def by_id(
+    measurement_id: int, db: DbSession, _: HistoryAccess
+) -> MeasurementResponse:
     measurement = get_measurement(db, measurement_id)
     if measurement is None:
         raise HTTPException(status_code=404, detail="Measurement not found")
