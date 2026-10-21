@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useReducer, useState } from "react"
 
-import { MeasurementsTable } from "@/components/dashboard/measurements-table"
+import { HistoryAccessDialog } from "@/components/dashboard/history-access-dialog"
 import { HistoryCharts } from "@/components/dashboard/history-charts"
-import { TimeRangeFilter } from "@/components/dashboard/time-range-filter"
+import { MeasurementsTable } from "@/components/dashboard/measurements-table"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { SensorCard } from "@/components/dashboard/sensor-card"
 import { StateMessage } from "@/components/dashboard/state-message"
+import { TimeRangeFilter } from "@/components/dashboard/time-range-filter"
 import { WaterStatusPanel } from "@/components/dashboard/water-status-panel"
+import { Button } from "@/components/ui/button"
 import {
   HISTORY_LIMIT,
   useHistoricalMeasurements,
@@ -14,10 +16,22 @@ import {
   useNodes,
   useRecentMeasurements,
 } from "@/hooks/use-telemetry"
-import { Button } from "@/components/ui/button"
-import { downloadCsv, getDocumentTitle } from "@/lib/export"
+import {
+  HttpError,
+  getMeasurementsCsv,
+  isUnauthorized,
+} from "@/lib/api"
+import { downloadBlob, getDocumentTitle } from "@/lib/export"
+import {
+  historyAccessReducer,
+  initialHistoryAccessState,
+} from "@/lib/history-access"
 import { SENSORS } from "@/lib/sensors"
-import type { TimePreset, TimeRange } from "@/lib/time-range"
+import {
+  getPresetRange,
+  type TimePreset,
+  type TimeRange,
+} from "@/lib/time-range"
 import {
   getAlertReasons,
   getConnectionState,
@@ -33,11 +47,60 @@ function useNow(intervalMs = 1_000) {
   return now
 }
 
-function HistorySection({ nodeId }: { nodeId: string }) {
+interface ProtectedSectionProps {
+  nodeId: string
+  authorization: string
+  onUnauthorized: () => void
+}
+
+function HistorySection({
+  nodeId,
+  authorization,
+  onUnauthorized,
+}: ProtectedSectionProps) {
   const [preset, setPreset] = useState<TimePreset>("1h")
   const [customRange, setCustomRange] = useState<TimeRange>()
-  const history = useHistoricalMeasurements(nodeId, preset, customRange)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string>()
+  const history = useHistoricalMeasurements(
+    nodeId,
+    preset,
+    authorization,
+    customRange
+  )
   const rows = history.data?.rows ?? []
+
+  useEffect(() => {
+    if (isUnauthorized(history.error)) onUnauthorized()
+  }, [history.error, onUnauthorized])
+
+  async function exportHistory() {
+    const range = preset === "custom" ? customRange : getPresetRange(preset)
+    if (!range) return
+
+    setExporting(true)
+    setExportError(undefined)
+    try {
+      const blob = await getMeasurementsCsv(
+        { nodeId, fromDate: range.from, toDate: range.to },
+        { authorization }
+      )
+      downloadBlob(
+        blob,
+        `${nodeId}_${preset}_${new Date().toISOString().slice(0, 19).replaceAll(":", "-")}.csv`
+      )
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        onUnauthorized()
+      } else if (error instanceof HttpError && error.status === 413) {
+        setExportError("Seleccione un periodo más corto para exportar.")
+      } else {
+        setExportError("No se pudo exportar el historial.")
+      }
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <section aria-labelledby="history-title" className="flex flex-col gap-4">
@@ -65,18 +128,18 @@ function HistorySection({ nodeId }: { nodeId: string }) {
           <Button
             size="sm"
             variant="outline"
-            disabled={!rows.length}
-            onClick={() =>
-              downloadCsv(
-                rows,
-                `${nodeId}_${preset}_${new Date().toISOString().slice(0, 19).replaceAll(":", "-")}.csv`
-              )
-            }
+            disabled={!rows.length || exporting}
+            onClick={exportHistory}
           >
-            Exportar CSV
+            {exporting ? "Exportando…" : "Exportar CSV"}
           </Button>
         </div>
       </div>
+      {exportError && (
+        <p className="text-xs text-destructive" role="alert">
+          {exportError}
+        </p>
+      )}
       {history.isPending ? (
         <StateMessage title="Cargando histórico…" />
       ) : history.isError && !rows.length ? (
@@ -94,9 +157,18 @@ function HistorySection({ nodeId }: { nodeId: string }) {
   )
 }
 
-function RecentSection({ nodeId }: { nodeId: string }) {
-  const recent = useRecentMeasurements(nodeId)
+function RecentSection({
+  nodeId,
+  authorization,
+  onUnauthorized,
+}: ProtectedSectionProps) {
+  const recent = useRecentMeasurements(nodeId, authorization)
   const rows = recent.data?.pages.flat() ?? []
+
+  useEffect(() => {
+    if (isUnauthorized(recent.error)) onUnauthorized()
+  }, [onUnauthorized, recent.error])
+
   // Pages shift as new readings arrive; drop duplicates by id.
   const seen = new Set<number>()
   const unique = rows.filter(
@@ -135,6 +207,14 @@ export function App() {
   const nodesQuery = useNodes()
   const nodes = nodesQuery.data ?? []
   const [chosenNode, setChosenNode] = useState<string>()
+  const [historyAccess, dispatchHistoryAccess] = useReducer(
+    historyAccessReducer,
+    initialHistoryAccessState
+  )
+  const rejectHistoryAccess = useCallback(
+    () => dispatchHistoryAccess({ type: "UNAUTHORIZED" }),
+    []
+  )
   // Only real API nodes are selectable; fall back to the first one.
   const selectedNode =
     chosenNode && nodes.includes(chosenNode) ? chosenNode : nodes[0]
@@ -163,6 +243,16 @@ export function App() {
         connection={connection}
         lastTimestamp={measurement?.created_at}
         now={now}
+      />
+      <HistoryAccessDialog
+        open={historyAccess.dialogOpen}
+        error={historyAccess.error}
+        onOpenChange={(open) =>
+          dispatchHistoryAccess({ type: open ? "OPEN" : "CLOSE" })
+        }
+        onSubmit={(username, password) =>
+          dispatchHistoryAccess({ type: "SUBMIT", username, password })
+        }
       />
 
       <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
@@ -216,12 +306,41 @@ export function App() {
             </section>
           </>
         )}
-        {selectedNode && measurement && (
-          <>
-            <HistorySection nodeId={selectedNode} />
-            <RecentSection nodeId={selectedNode} />
-          </>
-        )}
+        {selectedNode && measurement &&
+          (historyAccess.authorization ? (
+            <>
+              <HistorySection
+                nodeId={selectedNode}
+                authorization={historyAccess.authorization}
+                onUnauthorized={rejectHistoryAccess}
+              />
+              <RecentSection
+                nodeId={selectedNode}
+                authorization={historyAccess.authorization}
+                onUnauthorized={rejectHistoryAccess}
+              />
+            </>
+          ) : (
+            <section
+              aria-labelledby="protected-history-title"
+              className="flex items-center justify-between gap-4 border border-border p-4"
+            >
+              <div>
+                <h2
+                  id="protected-history-title"
+                  className="font-heading text-lg font-semibold"
+                >
+                  Historial protegido
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Ingrese con la cuenta autorizada para consultar y exportar.
+                </p>
+              </div>
+              <Button onClick={() => dispatchHistoryAccess({ type: "OPEN" })}>
+                Acceder al historial
+              </Button>
+            </section>
+          ))}
       </main>
     </div>
   )

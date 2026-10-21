@@ -10,6 +10,7 @@ import {
   getMeasurements,
   getNextOffset,
   getNodes,
+  shouldRetryRequest,
 } from "@/lib/api"
 import {
   getPresetRange,
@@ -49,6 +50,7 @@ export function useLatestMeasurement(nodeId: string | undefined) {
 export function useHistoricalMeasurements(
   nodeId: string | undefined,
   preset: TimePreset,
+  authorization: string | null,
   customRange?: TimeRange
 ) {
   return useQuery({
@@ -67,27 +69,38 @@ export function useHistoricalMeasurements(
           toDate: range.to,
           limit: HISTORY_LIMIT,
         },
-        signal
+        { authorization: authorization ?? undefined, signal }
       )
       return {
         rows: [...rows].reverse(),
         truncated: rows.length >= HISTORY_LIMIT,
       }
     },
-    enabled: Boolean(nodeId) && (preset !== "custom" || Boolean(customRange)),
+    enabled:
+      Boolean(nodeId) &&
+      Boolean(authorization) &&
+      (preset !== "custom" || Boolean(customRange)),
     refetchInterval: preset === "custom" ? false : 10_000,
     placeholderData: keepPreviousData,
+    retry: shouldRetryRequest,
   })
 }
 
-export function useRecentMeasurements(nodeId: string | undefined) {
+export function useRecentMeasurements(
+  nodeId: string | undefined,
+  authorization: string | null
+) {
   return useInfiniteQuery({
     queryKey: telemetryKeys.recent(nodeId ?? ""),
     queryFn: ({ pageParam, signal }) =>
-      getMeasurements({ nodeId, limit: PAGE_SIZE, offset: pageParam }, signal),
+      getMeasurements(
+        { nodeId, limit: PAGE_SIZE, offset: pageParam },
+        { authorization: authorization ?? undefined, signal }
+      ),
     initialPageParam: 0,
     getNextPageParam: getNextOffset,
     refetchInterval: 10_000,
-    enabled: Boolean(nodeId),
+    enabled: Boolean(nodeId) && Boolean(authorization),
+    retry: shouldRetryRequest,
   })
 }
