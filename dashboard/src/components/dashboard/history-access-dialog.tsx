@@ -26,7 +26,7 @@ export function HistoryAccessDialog({
   onOpenChange,
   onSubmit,
 }: HistoryAccessDialogProps) {
-  const [username, setUsername] = useState("admin")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
