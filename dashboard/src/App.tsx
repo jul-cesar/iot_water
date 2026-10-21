@@ -16,11 +16,7 @@ import {
   useNodes,
   useRecentMeasurements,
 } from "@/hooks/use-telemetry"
-import {
-  HttpError,
-  getMeasurementsCsv,
-  isUnauthorized,
-} from "@/lib/api"
+import { HttpError, getMeasurementsCsv, isUnauthorized } from "@/lib/api"
 import { downloadBlob, getDocumentTitle } from "@/lib/export"
 import {
   historyAccessReducer,
@@ -306,7 +302,8 @@ export function App() {
             </section>
           </>
         )}
-        {selectedNode && measurement &&
+        {selectedNode &&
+          measurement &&
           (historyAccess.authorization ? (
             <>
               <HistorySection

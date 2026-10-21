@@ -44,10 +44,22 @@ test("download blob clicks a temporary link and revokes its URL", async () => {
 })
 
 test("document title reflects connection before water status", () => {
-  assert.equal(getDocumentTitle("ERROR", "OPTIMAL"), "SIN CONEXIÓN · AquaMonitor")
-  assert.equal(getDocumentTitle("NO_DATA", "CRITICAL"), "SIN DATOS · AquaMonitor")
-  assert.equal(getDocumentTitle("ONLINE", "CRITICAL"), "⚠ CRÍTICO · AquaMonitor")
-  assert.equal(getDocumentTitle("ONLINE", "WARNING"), "ADVERTENCIA · AquaMonitor")
+  assert.equal(
+    getDocumentTitle("ERROR", "OPTIMAL"),
+    "SIN CONEXIÓN · AquaMonitor"
+  )
+  assert.equal(
+    getDocumentTitle("NO_DATA", "CRITICAL"),
+    "SIN DATOS · AquaMonitor"
+  )
+  assert.equal(
+    getDocumentTitle("ONLINE", "CRITICAL"),
+    "⚠ CRÍTICO · AquaMonitor"
+  )
+  assert.equal(
+    getDocumentTitle("ONLINE", "WARNING"),
+    "ADVERTENCIA · AquaMonitor"
+  )
   assert.equal(getDocumentTitle("ONLINE", "OPTIMAL"), "Óptimo · AquaMonitor")
   assert.equal(getDocumentTitle("NO_DATA"), "SIN DATOS · AquaMonitor")
 })

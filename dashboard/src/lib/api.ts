@@ -20,8 +20,7 @@ export interface MeasurementsParams {
   offset?: number
 }
 
-const API_BASE_URL =
-  import.meta.env?.VITE_API_URL ?? "https://iot.julcesar.xyz"
+const API_BASE_URL = import.meta.env?.VITE_API_URL ?? "https://iot.julcesar.xyz"
 
 export interface RequestOptions {
   authorization?: string
@@ -49,7 +48,10 @@ export function shouldRetryRequest(
   return !isUnauthorized(error) && failureCount < 3
 }
 
-const requestInit = ({ authorization, signal }: RequestOptions): RequestInit => ({
+const requestInit = ({
+  authorization,
+  signal,
+}: RequestOptions): RequestInit => ({
   signal,
   headers: authorization ? { Authorization: authorization } : undefined,
 })
