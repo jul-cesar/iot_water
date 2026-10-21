@@ -4,9 +4,9 @@
 
 **Goal:** Require one shared administrator credential to read stored measurement history and export up to 31 days as an Excel-compatible CSV.
 
-**Architecture:** FastAPI HTTP Basic protects stored-history routes using a password hash configured in the environment. The backend generates bounded CSV exports; React keeps one Basic authorization value only in component memory and uses it for history, recent rows, and export while current readings remain public.
+**Architecture:** FastAPI HTTP Basic protects stored-history routes using a username and password configured in the environment. The backend generates bounded CSV exports; React keeps one Basic authorization value only in component memory and uses it for history, recent rows, and export while current readings remain public.
 
-**Tech Stack:** Python 3.12, FastAPI, SQLAlchemy, Python standard-library `hashlib`/`csv`; React 19, TypeScript, TanStack Query, existing Base UI dialog; pytest and Node test runner.
+**Tech Stack:** Python 3.12, FastAPI, SQLAlchemy, Python standard-library `secrets`/`csv`; React 19, TypeScript, TanStack Query, existing Base UI dialog; pytest and Node test runner.
 
 **Spec:** `docs/superpowers/specs/2026-10-20-protected-history-export-design.md`
 
@@ -23,7 +23,7 @@
 
 ## Review Focus
 
-- Missing, malformed, or wrong Basic credentials must always produce the same `401` and `WWW-Authenticate` response (Task 1 tests).
+- Missing, malformed, or wrong Basic credentials must always produce the same `401` without `WWW-Authenticate`, so only the custom modal appears (Task 1 tests).
 - The dynamic `/{measurement_id}` route must not capture `/export.csv` (Task 2 route test).
 - Exactly 31 days must pass while 31 days plus one second fails with `422` (Task 2 boundary tests).
 - A 50,001st row must produce `413` rather than truncation or an oversized response (Task 2 cap test).
@@ -43,9 +43,8 @@
 - Modify: `backend/README.md`
 
 **Interfaces:**
-- Produces: `hash_history_password(password: str, *, salt: bytes | None = None) -> str`, encoded as `scrypt$<salt hex>$<digest hex>` with fixed standard-library scrypt parameters.
 - Produces: `require_history_access(credentials: Annotated[HTTPBasicCredentials, Depends(HTTPBasic())]) -> None`.
-- Produces settings: `history_username: str` and `history_password_hash: str` sourced from `HISTORY_USERNAME` and `HISTORY_PASSWORD_HASH`.
+- Produces settings: `history_username: str` and `history_password: str` sourced from `HISTORY_USERNAME` and `HISTORY_PASSWORD`.
 - Consumes: existing FastAPI route dependencies and settings singleton.
 
 - [ ] **Step 1: Write failing authentication tests**
@@ -59,7 +58,7 @@ assert client.get("/api/measurements", auth=("admin", "wrong")).status_code == 4
 assert client.get("/api/measurements", auth=("admin", "test-password")).status_code == 200
 ```
 
-Also assert all rejected cases have generic `{"detail": "Invalid history credentials"}` and `WWW-Authenticate: Basic`, while POST, latest, and nodes remain public.
+Also assert all rejected cases have generic `{"detail": "Invalid history credentials"}` without `WWW-Authenticate`, while POST, latest, and nodes remain public.
 
 - [ ] **Step 2: Run the focused tests and verify failure**
 
@@ -69,9 +68,9 @@ Expected: FAIL because history routes are still public and no authentication dep
 
 - [ ] **Step 3: Implement the minimum authentication dependency**
 
-In `backend/app/core/history_auth.py`, implement the two produced interfaces with `hashlib.scrypt`, random 16-byte salts from `secrets.token_bytes`, and `secrets.compare_digest`. Treat malformed configured hashes as invalid credentials, never as a server traceback. In `measurements.py`, add the dependency only to list and detail routes.
+In `backend/app/core/history_auth.py`, compare both environment credentials with `secrets.compare_digest` and normalize malformed Basic headers to the same generic response. In `measurements.py`, add the dependency only to list and detail routes.
 
-Set deterministic test credentials in `backend/tests/conftest.py`. Add placeholder production values and a one-line hash-generation command to `.env.example` and `backend/README.md`; never include a real password.
+Set test credentials in `backend/tests/conftest.py`. Add placeholder production values to `.env.example` and `backend/README.md`; never include a real password.
 
 - [ ] **Step 4: Run authentication tests and checks**
 

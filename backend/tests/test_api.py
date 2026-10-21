@@ -109,7 +109,7 @@ def test_history_routes_require_credentials(client: TestClient) -> None:
         response = client.get(path)
         assert response.status_code == 401
         assert response.json() == {"detail": "Invalid history credentials"}
-        assert response.headers["www-authenticate"] == "Basic"
+        assert "www-authenticate" not in response.headers
 
 
 @pytest.mark.parametrize(
@@ -123,7 +123,7 @@ def test_wrong_history_credentials_are_rejected(
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Invalid history credentials"}
-    assert response.headers["www-authenticate"] == "Basic"
+    assert "www-authenticate" not in response.headers
 
 
 @pytest.mark.parametrize(
@@ -139,26 +139,36 @@ def test_malformed_history_credentials_use_generic_response(
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Invalid history credentials"}
-    assert response.headers["www-authenticate"] == "Basic"
+    assert "www-authenticate" not in response.headers
 
 
-def test_generated_history_hash_authenticates(
+def test_environment_history_credentials_authenticate(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from app.core.config import settings
-    from app.core.history_auth import hash_history_password
 
-    monkeypatch.setattr(
-        settings,
-        "history_password_hash",
-        hash_history_password("generated-password", salt=b"generated-salt-1"),
-    )
+    monkeypatch.setattr(settings, "history_username", "environment-user")
+    monkeypatch.setattr(settings, "history_password", "environment-password")
 
     response = client.get(
-        "/api/measurements", auth=("admin", "generated-password")
+        "/api/measurements",
+        auth=("environment-user", "environment-password"),
     )
 
     assert response.status_code == 200
+
+
+def test_empty_environment_credentials_fail_closed(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "history_username", "admin")
+    monkeypatch.setattr(settings, "history_password", "")
+
+    response = client.get("/api/measurements", auth=("admin", ""))
+
+    assert response.status_code == 401
 
 
 def test_invalid_date_range_returns_422(client: TestClient) -> None:
@@ -207,7 +217,7 @@ def test_export_requires_valid_credentials(client: TestClient) -> None:
     for response in (missing, wrong):
         assert response.status_code == 401
         assert response.json() == {"detail": "Invalid history credentials"}
-        assert response.headers["www-authenticate"] == "Basic"
+        assert "www-authenticate" not in response.headers
 
 
 def test_export_returns_chronological_excel_compatible_csv(

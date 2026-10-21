@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     api_prefix: str = "/api"
     cors_origins: CorsOrigins = ["*"]
     history_username: str = "admin"
-    history_password_hash: str = ""
+    history_password: str = ""
 
 
-settings = Settings()
+settings = Settings()  # pyright: ignore[reportCallIssue]
