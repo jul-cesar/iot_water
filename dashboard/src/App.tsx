@@ -204,7 +204,6 @@ export function App() {
   const now = useNow()
   const nodesQuery = useNodes()
   const nodes = nodesQuery.data ?? []
-  const [chosenNode, setChosenNode] = useState<string>()
   const queryClient = useQueryClient()
   const [historyAccess, dispatchHistoryAccess] = useReducer(
     historyAccessReducer,
@@ -221,9 +220,7 @@ export function App() {
     },
     [queryClient]
   )
-  // Only real API nodes are selectable; fall back to the first one.
-  const selectedNode =
-    chosenNode && nodes.includes(chosenNode) ? chosenNode : nodes[0]
+  const selectedNode = nodes[0]
 
   const latestQuery = useLatestMeasurement(selectedNode)
   const measurement = latestQuery.data ?? null
@@ -243,9 +240,6 @@ export function App() {
   return (
     <div className="min-h-svh bg-background">
       <DashboardHeader
-        nodes={nodes}
-        selectedNode={selectedNode}
-        onSelectNode={setChosenNode}
         connection={connection}
         lastTimestamp={measurement?.created_at}
         now={now}

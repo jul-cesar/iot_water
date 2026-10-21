@@ -1,5 +1,5 @@
 import { HugeiconsIcon } from "@hugeicons/react"
-import { DropletIcon, Router01Icon } from "@hugeicons/core-free-icons"
+import { DropletIcon } from "@hugeicons/core-free-icons"
 import { cn } from "cn"
 
 import { ThemeToggle } from "@/components/motion/theme-toggle"
@@ -25,16 +25,10 @@ const CONNECTION = {
 } as const
 
 export function DashboardHeader({
-  nodes,
-  selectedNode,
-  onSelectNode,
   connection,
   lastTimestamp,
   now,
 }: {
-  nodes: string[]
-  selectedNode?: string
-  onSelectNode: (nodeId: string) => void
   connection: ConnectionState
   lastTimestamp?: string
   now: Date
@@ -64,9 +58,6 @@ export function DashboardHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* The selector only earns its place once the API reports more than one node. */}
-
-
           <ThemeToggle
             variant="circle-blur"
             start="top-right"
