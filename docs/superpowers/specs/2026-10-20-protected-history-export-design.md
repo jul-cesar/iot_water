@@ -22,7 +22,7 @@ Allow one shared administrator account to read stored measurement history and ex
 
 ## Backend design
 
-Use FastAPI's HTTP Basic security dependency. Configure the shared username and a password hash through environment variables. Compare credentials without revealing whether the username or password was incorrect.
+Use FastAPI's HTTP Basic security dependency. Configure the shared username and password through environment variables. Compare credentials without revealing whether the username or password was incorrect.
 
 Require authentication on:
 
@@ -50,7 +50,7 @@ Export calls the backend endpoint directly instead of converting the 1,000 curre
 
 ## Error handling
 
-- Missing or invalid credentials: `401` with a generic message and `WWW-Authenticate` header.
+- Missing or invalid credentials: `401` with a generic message and no `WWW-Authenticate` header, so the browser uses only the dashboard's access modal.
 - Missing, reversed, or excessive date range: `422` with a clear validation message.
 - More than 50,000 matching rows: `413` with guidance to select a shorter range.
 - Database or streaming failure: existing generic server-error behavior; no partial file is presented as successful.

@@ -69,16 +69,10 @@ APP_ENV=development
 API_PREFIX=/api
 CORS_ORIGINS=*
 HISTORY_USERNAME=admin
-HISTORY_PASSWORD_HASH=CHANGE_ME
+HISTORY_PASSWORD=CAMBIE_ESTA_CLAVE
 ```
 
-Genere el hash de la contraseña compartida antes de iniciar la API:
-
-```bash
-uv run python -c "from app.core.history_auth import hash_history_password; print(hash_history_password('CAMBIE_ESTA_CLAVE'))"
-```
-
-Copie el resultado en `HISTORY_PASSWORD_HASH`. No agregue `.env` al repositorio. La aplicación no registra `DATABASE_URL` ni credenciales.
+No agregue `.env` al repositorio. La aplicación no registra `DATABASE_URL` ni credenciales. Use HTTPS en producción porque HTTP Basic codifica las credenciales, pero no las cifra.
 
 ### 4. Iniciar la API
 
