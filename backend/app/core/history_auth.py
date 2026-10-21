@@ -2,7 +2,7 @@ import hashlib
 import secrets
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from app.core.config import settings
@@ -12,7 +12,25 @@ _SCRYPT_N = 2**14
 _SCRYPT_R = 8
 _SCRYPT_P = 1
 _DKLEN = 32
-_security = HTTPBasic(auto_error=False)
+
+
+def _invalid_history_credentials() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid history credentials",
+        headers={"WWW-Authenticate": "Basic"},
+    )
+
+
+class _GenericHTTPBasic(HTTPBasic):
+    async def __call__(self, request: Request) -> HTTPBasicCredentials | None:
+        try:
+            return await super().__call__(request)
+        except HTTPException:
+            raise _invalid_history_credentials() from None
+
+
+_security = _GenericHTTPBasic(auto_error=False)
 
 
 def hash_history_password(password: str, *, salt: bytes | None = None) -> str:
@@ -53,8 +71,4 @@ def require_history_access(
         credentials.password, settings.history_password_hash
     )
     if not (username_matches and password_matches):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid history credentials",
-            headers={"WWW-Authenticate": "Basic"},
-        )
+        raise _invalid_history_credentials()

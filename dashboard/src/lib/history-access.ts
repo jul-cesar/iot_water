@@ -1,3 +1,5 @@
+import type { QueryClient } from "@tanstack/react-query"
+
 export interface HistoryAccessState {
   authorization: string | null
   dialogOpen: boolean
@@ -14,6 +16,11 @@ export const initialHistoryAccessState: HistoryAccessState = {
   authorization: null,
   dialogOpen: false,
   error: null,
+}
+
+export function clearProtectedHistoryQueries(queryClient: QueryClient) {
+  queryClient.removeQueries({ queryKey: ["history"] })
+  queryClient.removeQueries({ queryKey: ["recent"] })
 }
 
 export function historyAccessReducer(

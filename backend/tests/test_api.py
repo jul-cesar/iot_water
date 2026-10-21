@@ -126,6 +126,22 @@ def test_wrong_history_credentials_are_rejected(
     assert response.headers["www-authenticate"] == "Basic"
 
 
+@pytest.mark.parametrize(
+    "authorization",
+    ["Basic !!!", "Basic bm9jb2xvbg=="],
+)
+def test_malformed_history_credentials_use_generic_response(
+    client: TestClient, authorization: str
+) -> None:
+    response = client.get(
+        "/api/measurements", headers={"Authorization": authorization}
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid history credentials"}
+    assert response.headers["www-authenticate"] == "Basic"
+
+
 def test_generated_history_hash_authenticates(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

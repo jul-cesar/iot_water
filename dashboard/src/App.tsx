@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { HistoryAccessDialog } from "@/components/dashboard/history-access-dialog"
 import { HistoryCharts } from "@/components/dashboard/history-charts"
@@ -19,6 +20,7 @@ import {
 import { HttpError, getMeasurementsCsv, isUnauthorized } from "@/lib/api"
 import { downloadBlob, getDocumentTitle } from "@/lib/export"
 import {
+  clearProtectedHistoryQueries,
   historyAccessReducer,
   initialHistoryAccessState,
 } from "@/lib/history-access"
@@ -203,13 +205,21 @@ export function App() {
   const nodesQuery = useNodes()
   const nodes = nodesQuery.data ?? []
   const [chosenNode, setChosenNode] = useState<string>()
+  const queryClient = useQueryClient()
   const [historyAccess, dispatchHistoryAccess] = useReducer(
     historyAccessReducer,
     initialHistoryAccessState
   )
-  const rejectHistoryAccess = useCallback(
-    () => dispatchHistoryAccess({ type: "UNAUTHORIZED" }),
-    []
+  const rejectHistoryAccess = useCallback(() => {
+    clearProtectedHistoryQueries(queryClient)
+    dispatchHistoryAccess({ type: "UNAUTHORIZED" })
+  }, [queryClient])
+  const submitHistoryAccess = useCallback(
+    (username: string, password: string) => {
+      clearProtectedHistoryQueries(queryClient)
+      dispatchHistoryAccess({ type: "SUBMIT", username, password })
+    },
+    [queryClient]
   )
   // Only real API nodes are selectable; fall back to the first one.
   const selectedNode =
@@ -246,9 +256,7 @@ export function App() {
         onOpenChange={(open) =>
           dispatchHistoryAccess({ type: open ? "OPEN" : "CLOSE" })
         }
-        onSubmit={(username, password) =>
-          dispatchHistoryAccess({ type: "SUBMIT", username, password })
-        }
+        onSubmit={submitHistoryAccess}
       />
 
       <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
