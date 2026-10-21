@@ -207,7 +207,7 @@ El contenedor ejecuta Uvicorn como usuario no root e incluye un healthcheck.
 4. Configure `CORS_ORIGINS` con los dominios reales del dashboard.
 5. Ejecute `docker build -t water-iot-api .`.
 6. Inicie el contenedor con el comando anterior y revise `/health` y `/docs`.
-7. Coloque Nginx, Caddy o el proxy de la VPS delante del puerto 8000 para publicar HTTPS.
+7. Coloque Nginx, Caddy o el proxy de la VPS delante del puerto 8000 para publicar HTTPS y limitar intentos fallidos contra las rutas de historial.
 8. Permita en el firewall únicamente los puertos públicos necesarios. PostgreSQL no debe exponerse públicamente para el collector.
 9. Configure copias de seguridad de PostgreSQL y supervise el healthcheck del contenedor.
 
